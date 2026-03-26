@@ -1,0 +1,66 @@
+{
+  "name": "arx",
+  "productName": "Arx",
+  "version": "1.0.0",
+  "description": "Arx – Instagram outreach automation tool",
+  "author": "morph Team",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "clean": "rimraf release",
+    "build:ui": "cd ../ui && npm run build",
+    "dist": "npm run clean && npm run build:ui && electron-builder",
+    "start": "electron ."
+  },
+  "build": {
+    "appId": "com.arx.app",
+    "productName": "Arx",
+    "asar": true,
+    "asarUnpack": [
+      "extensions/**"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "scoring.js",
+      "extensions/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "playwright-browsers",
+        "to": "playwright-browsers"
+      },
+      {
+        "from": "../ui/dist",
+        "to": "ui/dist"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "icon": "assets/icon.icns",
+      "target": "dmg",
+      "hardenedRuntime": false
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.7.3",
+    "node-machine-id": "^1.1.12",
+    "playwright-core": "^1.57.0",
+    "sqlite3": "^5.1.7",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^26.4.0",
+    "rimraf": "^6.1.2"
+  }
+}

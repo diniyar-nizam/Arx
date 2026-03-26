@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+release/
+out/
+electron/dist/
+electron/node_modules/
+
+*.dmg
+*.app
+*.zip
+*.log
+.env
+.DS_Store

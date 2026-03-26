@@ -1,0 +1,43 @@
+{
+  "name": "audm",
+  "version": "1.0.0",
+  "description": "auDM desktop app",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "npm run build:ui && electron .",
+    "build:ui": "cd ui && npm run build",
+    "build": "npm run build:ui && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^26.4.0",
+    "playwright": "^1.58.2"
+  },
+  "dependencies": {
+    "electron-updater": "^6.7.3",
+    "sqlite3": "^5.1.7"
+  },
+  "build": {
+    "appId": "com.audm.app",
+    "productName": "auDM",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "ui/dist/**/*",
+      "extensions/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
