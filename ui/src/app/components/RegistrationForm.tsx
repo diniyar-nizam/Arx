@@ -20,7 +20,7 @@ export default function RegistrationForm({ onSuccess }: Props) {
     try {
       const deviceId = await window.api.getDeviceId();
 
-        const res = await fetch("http://147.45.141.101:8000/api/activate", {
+        const res = await fetch("https://arx.prodautomate.com/api/activate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

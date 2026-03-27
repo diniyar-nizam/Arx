@@ -59,7 +59,7 @@ type SavedConfig = {
 };
 
 
-const SERVER_URL = "http://147.45.141.101:8000/api";
+const SERVER_URL = "https://arx.prodautomate.com/api";
 const POLL_INTERVAL = 60_000; // 1 минута
 
 function useSubscription() {
@@ -74,7 +74,7 @@ function useSubscription() {
   const checkSubscription = async (uid: string) => {
     try {
       const res = await fetch(
-        `http://147.45.141.101:8000/api/me?user_id=${uid}`
+        `https://arx.prodautomate.com/api/me?user_id=${uid}`
       );
       const data = await res.json();
 
@@ -111,7 +111,7 @@ function useSubscription() {
           const deviceId = await window.api.getDeviceId();
 
             const res = await fetch(
-              `http://147.45.141.101:8000/api/restore-by-device?device_id=${deviceId}`
+              `https://arx.prodautomate.com/api/restore-by-device?device_id=${deviceId}`
             );
 
           const data = await res.json();

@@ -34,7 +34,7 @@ let chromium;
 const CHROME_DATA_DIR = path.join(app.getPath("userData"), "chromium-user-data");
 const sqlite3 = require("sqlite3").verbose();
 const { scoreProfile } = require("./scoring");
-const API_URL = "http://147.45.141.101:8000/api";
+const API_URL = "https://arx.prodautomate.com/api";
 
 let browser = null;
 let mainWindow = null;
@@ -659,10 +659,6 @@ const paramsSnapshot = structuredClone(pParams);
         return;
       }
     }
-sendLog(
-  `👤 Активный профиль: ${CURRENT_PROFILE_DIR}, followers filter: ${pParams.filters.followers.from}-${pParams.filters.followers.to}`,
-  { color: "yellow" }
-);
   sendLog(`Открытие профиля @${username}`, { color: "gray" });
 
   await page.goto(
@@ -1139,6 +1135,7 @@ async function sendHumanMessage(text) {
   await humanType(page, inputSelector, text);
 
   await page.keyboard.press("Enter");
+  await page.waitForTimeout(2000 + Math.random() * 2000);
 }
 
 async function fallbackToComments(username, profile, scoringResult, texts) {
