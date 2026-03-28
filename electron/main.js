@@ -165,11 +165,12 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: false,
     },
   });
 
 //  mainWindow.setAspectRatio(15 / 10);
-  //mainWindow.setMenu(null);
+  mainWindow.setMenu(null);
   const isDev = !app.isPackaged;
 
   if (isDev) {
