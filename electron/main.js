@@ -636,6 +636,85 @@ function deepMerge(base, override) {
 
   return result;
 }
+const axios = require("axios");
+
+const API_KEY = "sk-aPXp28GBsLliy9nvuktNUg";
+const BASE_URL = "https://api.timeweb.ai/v1";
+
+async function classifyWithAI(profile) {
+  const prompt = `
+Classify Instagram account.
+
+Return ONLY ONE letter:
+A = artist (rapper, singer, performer)
+P = producer (beatmaker, producer, engineer)
+M = media (blog, label, studio, promo)
+U = undefined (music-related but unclear)
+T = trash (not related to music)
+
+Rules:
+- If there is NO clear evidence of music activity → T
+- Random bios, aesthetics, emojis, personal pages → T
+- Mentions of music must be explicit (artist, producer, track, etc.)
+- If clearly music but role unclear → U
+- Do not explain
+- Do not add extra text
+
+username: ${profile.username}
+name: ${profile.nickname}
+activity: ${profile.activity}
+bio: ${profile.bio?.slice(0, 200) || ""}
+links: ${Array.isArray(profile.links) ? profile.links.join(", ") : ""}
+highlights: ${Array.isArray(profile.highlights) ? profile.highlights.join(", ") : ""}
+posts: ${Array.isArray(profile.posts)
+  ? profile.posts.slice(0, 3).map(p => p.caption || "").join(" | ")
+  : ""}
+`;
+
+  try {
+    const res = await axios.post(
+      `${BASE_URL}/chat/completions`,
+      {
+        model: "gemini/gemini-2.5-flash",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0,
+        max_tokens: 5,
+      },
+      {
+        headers: {
+          Authorization: Bearer ${API_KEY},
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const text = res.data.choices?.[0]?.message?.content?.trim();
+
+    console.log("AI RAW:", text);
+
+    return mapAIResult(text);
+  } catch (err) {
+    console.error("AI ERROR:", err.response?.data || err.message);
+    return { type: "UNDEFINED" };
+  }
+}
+
+function mapAIResult(letter) {
+  const clean = letter?.toUpperCase().trim();
+
+  if (clean.startsWith("A")) return { type: "ARTIST" };
+  if (clean.startsWith("P")) return { type: "PRODUCER" };
+  if (clean.startsWith("M")) return { type: "MEDIA" };
+  if (clean.startsWith("T")) return { type: "TRASH" };
+
+  return { type: "UNDEFINED" };
+}
+
 async function processUsername(username, texts) {
   let shouldRemoveFromQueue = false;
   const pParams = getParamsForProfile(
@@ -739,7 +818,7 @@ const paramsSnapshot = structuredClone(pParams);
   }
 
 
-  const scoringResult = scoreProfile({
+  const scoringResult = await classifyWithAI({
     username: profile.username,
     nickname: profile.nickname,
     bio: profile.bio,
