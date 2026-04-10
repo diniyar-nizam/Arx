@@ -687,7 +687,7 @@ posts: ${Array.isArray(profile.posts)
       },
       {
         headers: {
-          Authorization: Bearer ${API_KEY},
+          Authorization: `Bearer ${API_KEY}`,
           "Content-Type": "application/json",
         },
       }
