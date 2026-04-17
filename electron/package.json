@@ -1,7 +1,7 @@
 {
   "name": "arx",
   "productName": "Arx",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Arx – Instagram outreach automation tool",
   "author": "morph Team",
   "main": "main.js",
@@ -49,11 +49,17 @@
       "icon": "assets/icon.icns",
       "target": "dmg",
       "hardenedRuntime": false
-    }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://arx.prodautomate.com/arx/mac/"
+      }
+    ]
   },
   "dependencies": {
     "axios": "^1.15.0",
-    "electron-updater": "^6.7.3",
+    "electron-updater": "^6.8.3",
     "node-machine-id": "^1.1.12",
     "playwright-core": "^1.57.0",
     "sqlite3": "^5.1.7",

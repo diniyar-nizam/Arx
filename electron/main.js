@@ -35,6 +35,9 @@ const CHROME_DATA_DIR = path.join(app.getPath("userData"), "chromium-user-data")
 const sqlite3 = require("sqlite3").verbose();
 const { scoreProfile } = require("./scoring");
 const API_URL = "https://arx.prodautomate.com/api";
+const { autoUpdater } = require("electron-updater");
+
+autoUpdater.autoDownload = false;
 
 let browser = null;
 let mainWindow = null;
@@ -100,6 +103,33 @@ function randomizePercentForMin(base, percent) {
   const max = base + delta;
   return Math.max(0, Math.round(min + Math.random() * (max - min)));
 }
+
+function sendStatus(type, data) {
+  mainWindow?.webContents.send("update-status", { type, data });
+}
+
+autoUpdater.on("update-available", () => {
+  sendStatus("available");
+});
+
+autoUpdater.on("update-not-available", () => {
+  sendStatus("none");
+});
+
+autoUpdater.on("download-progress", (p) => {
+  sendStatus("progress", p.percent);
+});
+
+autoUpdater.on("update-downloaded", () => {
+  sendStatus("downloaded");
+});
+
+ipcMain.handle("install-update", () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+ipcMain.handle("download-update", async () => {
+  return autoUpdater.downloadUpdate();
+});
 
 function weightedDelay(max) {
   if (!max || max <= 0) return 0;
@@ -2335,4 +2365,12 @@ app.whenReady().then(() => {
   ({ chromium } = require("playwright-core"));
 
   createWindow();
+
+  // updater
+  autoUpdater.checkForUpdates();
+
+  setInterval(() => {
+    autoUpdater.checkForUpdates();
+  }, 1 * 60 * 1000);
+
 });

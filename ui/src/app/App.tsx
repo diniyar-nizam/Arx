@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from '@/app/components/Sidebar';
 import { DashboardCard } from '@/app/components/DashboardCard';
 import { AccountInfo } from '@/app/components/AccountInfo';
@@ -33,7 +33,35 @@ function AppContent() {
   const [campaignState, setCampaignState] = useState<CampaignState>('idle');
   const [isFollowUpActive, setIsFollowUpActive] = useState(false);
   const { theme } = useTheme();
-  const SHOW_UPDATE_BANNER = false;
+  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
+const [updateState, setUpdateState] = useState<"idle" | "downloading" | "downloaded">("idle");
+const [progress, setProgress] = useState(0);
+useEffect(() => {
+  window.api.onUpdateStatus((data) => {
+    if (data.type === "available") {
+      setShowUpdateBanner(true);
+    }
+
+    if (data.type === "progress") {
+      setUpdateState("downloading");
+      setProgress(data.data);
+    }
+
+    if (data.type === "downloaded") {
+      setUpdateState("downloaded");
+    }
+  });
+}, []);
+const handleUpdate = async () => {
+  if (updateState === "idle") {
+    setUpdateState("downloading");
+    await window.api.downloadUpdate();
+  }
+
+  if (updateState === "downloaded") {
+    window.api.installUpdate();
+  }
+};
 
   // === ПРОВЕРКА ЛИЦЕНЗИИ ===
 
@@ -66,7 +94,7 @@ function AppContent() {
       <main className="flex-1 ml-20 h-full flex flex-col items-center p-8 overflow-hidden relative">
         {/* Top Banner */}
         <AnimatePresence>
-          {SHOW_UPDATE_BANNER && (
+          {showUpdateBanner && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
               <motion.div
                 initial={{ y: -20, opacity: 0 }}
@@ -77,8 +105,26 @@ function AppContent() {
                 <span className="text-[10px] font-bold text-white uppercase tracking-wider">
                   New version available
                 </span>
-                <button className="px-3 py-1 bg-white text-blue-600 rounded-full text-[9px] font-black uppercase hover:bg-blue-50 transition-colors cursor-pointer active:opacity-80">
-                  Update now
+                <button
+                  onClick={handleUpdate}
+                  className="relative overflow-hidden px-3 py-1 bg-white text-blue-600 rounded-full text-[9px] font-black uppercase cursor-pointer"
+                >
+                  {/* прогресс фон */}
+                  {updateState === "downloading" && (
+                    <motion.div
+                      className="absolute left-0 top-0 h-full bg-blue-200"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      transition={{ ease: "linear" }}
+                    />
+                  )}
+
+                  {/* текст */}
+                  <span className="relative z-10">
+                    {updateState === "idle" && "Update now"}
+                    {updateState === "downloading" && "Downloading..."}
+                    {updateState === "downloaded" && "UPDATE & RESTART"}
+                  </span>
                 </button>
               </motion.div>
             </div>

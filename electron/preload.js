@@ -58,4 +58,8 @@ onBrowserStopped: (cb) => {
   ipcRenderer.on("usernames-updated", handler);
   return () => ipcRenderer.removeListener("usernames-updated", handler);
 },
+
+onUpdateStatus: (cb) => ipcRenderer.on("update-status", (_, d) => cb(d)),
+  downloadUpdate: () => ipcRenderer.invoke("download-update"),
+  installUpdate: () => ipcRenderer.invoke("install-update"),
 });
