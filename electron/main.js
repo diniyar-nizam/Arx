@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const isDev = !app.isPackaged;
@@ -108,8 +108,8 @@ function sendStatus(type, data) {
   mainWindow?.webContents.send("update-status", { type, data });
 }
 
-autoUpdater.on("update-available", () => {
-  sendStatus("available");
+autoUpdater.on("update-available", (info) => {
+  sendStatus("available", info.version);
 });
 
 autoUpdater.on("update-not-available", () => {
@@ -125,12 +125,16 @@ autoUpdater.on("update-downloaded", () => {
 });
 
 ipcMain.handle("install-update", () => {
-  autoUpdater.quitAndInstall(false, true);
+sendLog("install clicked", { color: "red" });
+  autoUpdater.quitAndInstall();
 });
 ipcMain.handle("download-update", async () => {
   return autoUpdater.downloadUpdate();
 });
-
+ipcMain.handle("open-mac-update", (_, version) => {
+  const url = `https://arx.prodautomate.com/arx/mac/Arx-${version}-arm64.dmg`;
+  shell.openExternal(url);
+});
 function weightedDelay(max) {
   if (!max || max <= 0) return 0;
 
@@ -195,12 +199,12 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      devTools: false,
+//      devTools: false,
     },
   });
 
 //  mainWindow.setAspectRatio(15 / 10);
-  mainWindow.setMenu(null);
+//  mainWindow.setMenu(null);
   const isDev = !app.isPackaged;
 
   if (isDev) {
@@ -2354,7 +2358,7 @@ app.on("activate", () => {
     createWindow();
   }
 });
-
+app.commandLine.appendSwitch("disable-quic");
 app.whenReady().then(() => {
   const playwrightBrowsersPath = app.isPackaged
     ? path.join(process.resourcesPath, "playwright-browsers")

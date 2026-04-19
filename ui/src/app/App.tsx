@@ -36,10 +36,12 @@ function AppContent() {
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
 const [updateState, setUpdateState] = useState<"idle" | "downloading" | "downloaded">("idle");
 const [progress, setProgress] = useState(0);
+const [newVersion, setNewVersion] = useState<string | null>(null);
 useEffect(() => {
   window.api.onUpdateStatus((data) => {
     if (data.type === "available") {
       setShowUpdateBanner(true);
+      setNewVersion(data.data);
     }
 
     if (data.type === "progress") {
@@ -52,15 +54,9 @@ useEffect(() => {
     }
   });
 }, []);
-const handleUpdate = async () => {
-  if (updateState === "idle") {
-    setUpdateState("downloading");
-    await window.api.downloadUpdate();
-  }
-
-  if (updateState === "downloaded") {
-    window.api.installUpdate();
-  }
+const handleUpdate = () => {
+  if (!newVersion) return;
+  window.api.openMacUpdate(newVersion);
 };
 
   // === ПРОВЕРКА ЛИЦЕНЗИИ ===
@@ -121,9 +117,10 @@ const handleUpdate = async () => {
 
                   {/* текст */}
                   <span className="relative z-10">
-                    {updateState === "idle" && "Update now"}
-                    {updateState === "downloading" && "Downloading..."}
-                    {updateState === "downloaded" && "UPDATE & RESTART"}
+                    Update now
+                    {/*{updateState === "idle" && "Update now"}*/}
+                    {/*{updateState === "downloading" && "Downloading..."}*/}
+                    {/*{updateState === "downloaded" && "UPDATE & RESTART"}*/}
                   </span>
                 </button>
               </motion.div>

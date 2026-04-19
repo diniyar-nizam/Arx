@@ -47,7 +47,10 @@
     },
     "mac": {
       "icon": "assets/icon.icns",
-      "target": "dmg",
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "hardenedRuntime": false
     },
     "publish": [

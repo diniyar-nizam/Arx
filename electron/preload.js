@@ -62,4 +62,5 @@ onBrowserStopped: (cb) => {
 onUpdateStatus: (cb) => ipcRenderer.on("update-status", (_, d) => cb(d)),
   downloadUpdate: () => ipcRenderer.invoke("download-update"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
+  openMacUpdate: (version) => ipcRenderer.invoke("open-mac-update", version),
 });
