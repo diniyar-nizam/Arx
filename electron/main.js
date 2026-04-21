@@ -52,6 +52,7 @@ let messageSent = false;
 let viewedAccountsCount = 0;
 let currentProfileIndex = 0;
 let messagesSentByProfile = 0;
+let scannedWithoutMessages = 0;
 let MAILING_PROFILES = [];
 let FOLLOW_UP_QUEUE = [];
 let CURRENT_PROFILE_DIR = null;
@@ -1000,7 +1001,7 @@ if (
   );
 }
 if (!mailingActive) return;
-const chatOpened = await openChatWithUser(username);
+const chatOpened = await openChatSmart(page, username);
 
 if (!chatOpened) {
   sendLog(`Пропуск @${username}: не удалось открыть диалог`, { color: "gray" });
@@ -1034,6 +1035,7 @@ shouldRemoveFromQueue = true;
 sendLog(`Сообщение отправлено @${username}`, { color: "green" });
 messageSent = true;
 mailingState.processed++;
+scannedWithoutMessages = 0;
 mailingState.totalProcessed++;
 FOLLOW_UP_QUEUE.push({
   username,
@@ -1079,10 +1081,16 @@ if (messageSent) {
 }
 
 const limit = PROFILE_LIMITS[CURRENT_PROFILE_DIR];
+const VIEW_LIMIT = 2000;
+const NO_MESSAGE_LIMIT = 100;
 
-if (limit && messagesSentByProfile >= limit) {
+if (
+  (limit && messagesSentByProfile >= limit) ||
+  mailingState.scanned >= VIEW_LIMIT ||
+  scannedWithoutMessages >= NO_MESSAGE_LIMIT
+  ) {
   sendLog(
-    `🔄 Лимит ${limit} сообщений достигнут — смена профиля`,
+    `🔄 Лимит достигнут — смена профиля`,
     { color: "yellow" }
   );
   mailingState.processed = 0;
@@ -1134,11 +1142,13 @@ sendMailingState();
     );
     await removeUsernameFromQueue(username, CURRENT_USER_ID);
     mailingState.scanned++;
+    scannedWithoutMessages++;
     sendMailingState();
   } finally {
   if (shouldRemoveFromQueue) {
       viewedAccountsCount++;
       mailingState.scanned++;
+      scannedWithoutMessages++;
       sendMailingState();
       await checkLongPause(paramsSnapshot);
         await removeUsernameFromQueue(username, CURRENT_USER_ID);
@@ -1241,6 +1251,79 @@ await page.waitForTimeout(2500);
 sendLog(`💬 Диалог с @${username} открыт`, { color: "green" });
 return true;
 
+}
+
+async function openChatSmart(page, username) {
+  // 1. Открываем профиль
+  await page.goto(`https://www.instagram.com/${username}/`);
+  await page.waitForTimeout(4000);
+
+  // ===== ИЩЕМ КНОПКУ MESSAGE =====
+  const messageBtn = await page.evaluateHandle(() => {
+    const buttons = Array.from(document.querySelectorAll("div[role='button'], a"));
+
+    return buttons.find(btn => {
+      const text = btn.innerText?.toLowerCase() || "";
+      return (
+        /\bmessage\b/.test(text) ||
+        text.includes("сообщение") ||
+        text.includes("написать")
+      );
+    }) || null;
+  });
+
+  if (messageBtn) {
+  const el = messageBtn.asElement();
+  if (el) {
+    await el.click();
+    await page.waitForTimeout(3000);
+
+    sendLog(`✅ Открыли чат`, { color: "green" });
+    return true;
+  }
+}
+
+  // ===== 2. ФОЛЛБЕК — ЧЕРЕЗ DIRECT =====
+  sendLog(`⚠️ Нет кнопки, идем через direct`, { color: "yellow" });
+
+  const opened = await openChatWithUser(username);
+  if (!opened) return false;
+
+  // ===== 3. ПРОВЕРКА ОШИБКИ =====
+  const hasError = await page.evaluate(() => {
+    const text = document.body.innerText.toLowerCase();
+    return text.includes("что-то не работает") ||
+           text.includes("something went wrong");
+  });
+
+  if (hasError) {
+    sendLog(`❌ Ошибка в direct, пробуем через профиль`, { color: "red" });
+
+    // ищем кнопку "смотреть профиль"
+    const profileBtn = await page.evaluateHandle(() => {
+      const buttons = Array.from(document.querySelectorAll("a, div[role='button']"));
+
+      return buttons.find(btn => {
+        const text = btn.innerText?.toLowerCase() || "";
+        return (
+          text.includes("смотреть профиль") ||
+          text.includes("view profile")
+        );
+      }) || null;
+    });
+
+    if (profileBtn) {
+      await profileBtn.asElement().click();
+      await page.waitForTimeout(3000);
+
+     sendLog(`✅ Открыли чат`, { color: "green" });
+     return true;
+    }
+
+    return false;
+  }
+
+  return true;
 }
 
 async function sendHumanMessage(text) {
@@ -1391,9 +1474,33 @@ function randomFromArray(arr) {
 async function hasExistingDialog() {
   try {
     return await page.evaluate(() => {
-      return document.querySelectorAll(
+      // 🔥 1. СНАЧАЛА проверяем через grid (это важно для мини-окна)
+      const grids = document.querySelectorAll('[role="grid"]');
+
+      for (const grid of grids) {
+        const rows = grid.querySelectorAll('[role="row"]');
+
+        for (const row of rows) {
+          const messageText = row.querySelector('[dir="auto"]');
+
+          if (messageText && messageText.innerText.trim().length > 0) {
+            return true;
+          }
+        }
+      }
+
+      // ⚡️ 2. Если не нашли — используем старый способ (для обычного DM)
+      const oldElements = document.querySelectorAll(
         'div[role="presentation"] div[dir="auto"]'
-      ).length > 0;
+      );
+
+      for (const el of oldElements) {
+        if (el.innerText && el.innerText.trim().length > 0) {
+          return true;
+        }
+      }
+
+      return false;
     });
   } catch {
     return false;
