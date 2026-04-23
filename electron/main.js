@@ -64,6 +64,7 @@ let GLOBAL_PARAMS = null;
 let ACCOUNT_PARAMS = {};
 const { machineIdSync } = require("node-machine-id");
 const DEVICE_ID = machineIdSync();
+const axios = require("axios");
 
 ipcMain.handle("get-device-id", () => {
     return DEVICE_ID;
@@ -671,7 +672,6 @@ function deepMerge(base, override) {
 
   return result;
 }
-const axios = require("axios");
 
 const API_KEY = "sk-aPXp28GBsLliy9nvuktNUg";
 const BASE_URL = "https://api.timeweb.ai/v1";
@@ -748,6 +748,22 @@ function mapAIResult(letter) {
   if (clean.startsWith("T")) return { type: "TRASH" };
 
   return { type: "UNDEFINED" };
+}
+
+function hasRussianInProfile(profile) {
+  return (
+    containsCyrillic(profile.username) ||
+    containsCyrillic(profile.nickname) ||
+    containsCyrillic(profile.bio) ||
+    (Array.isArray(profile.bioLinks) && profile.bioLinks.some(containsCyrillic)) ||
+    (Array.isArray(profile.highlights) && profile.highlights.some(containsCyrillic)) ||
+    (Array.isArray(profile.posts) &&
+      profile.posts.some(p => containsCyrillic(p.caption)))
+  );
+}
+
+function containsCyrillic(text = "") {
+  return /[а-яё]/i.test(text);
 }
 
 async function processUsername(username, texts) {
@@ -852,6 +868,12 @@ const paramsSnapshot = structuredClone(pParams);
     sendLog(`[POSTS] —`, { color: "gray" });
   }
 
+if (hasRussianInProfile(profile)) {
+  sendLog(`Русский текст — TRASH`, { color: "red" });
+
+  shouldRemoveFromQueue = true;
+  return;
+}
 
   const scoringResult = await classifyWithAI({
     username: profile.username,
@@ -1008,6 +1030,8 @@ if (!chatOpened) {
   shouldRemoveFromQueue = true;
   return;
 }
+
+await page.waitForTimeout(1000);
 
 if (pParams.filters?.skipIfDialogExists) {
   const exists = await hasExistingDialog();
@@ -1431,6 +1455,8 @@ async function isUserInDB(username, userId) {
     return !!data.exists;
   } catch (e) {
     sendLog(`DB check error: ${e.message}`, { color: "red" });
+    sendLog(`FETCH ERROR FULL: ${e}`, { color: "red" });
+    sendLog(`STACK: ${e.stack}`, { color: "red" });
     return false;
   }
 }
@@ -1549,19 +1575,19 @@ await context.grantPermissions([], {
       origin: "https://www.instagram.com",
     });
 
-    await context.route("**/*", route => {
-      const type = route.request().resourceType();
-
-      if (
-        type === "image" ||
-        type === "media" ||
-        type === "font"
-      ) {
-        route.abort();
-      } else {
-        route.continue();
-      }
-    });
+//    await context.route("**/*", route => {
+//      const type = route.request().resourceType();
+//
+//      if (
+//        type === "image" ||
+//        type === "media" ||
+//        type === "font"
+//      ) {
+//        route.abort();
+//      } else {
+//        route.continue();
+//      }
+//    });
     mailingState.limit = PROFILE_LIMITS[profileDir];
     mailingState.totalLimit = Object.values(PROFILE_LIMITS)
         .reduce((a, b) => a + b, 0);
