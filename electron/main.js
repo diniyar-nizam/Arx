@@ -1443,20 +1443,18 @@ async function isUserInDB(username, userId) {
     const normalized =
       "@" + username.replace(/^@/, "").trim().toLowerCase();
 
-    const url =
-      `${API_URL}/profiles/exists?user_id=${userId}&username=${encodeURIComponent(normalized)}`;
+    const res = await axios.get(`${API_URL}/profiles/exists`, {
+      params: {
+        user_id: userId,
+        username: normalized,
+      },
+      timeout: 10000,
+    });
 
-    const res = await fetch(url);
+    return !!res.data?.exists;
 
-    if (!res.ok) return false;
-
-    const data = await res.json();
-
-    return !!data.exists;
   } catch (e) {
     sendLog(`DB check error: ${e.message}`, { color: "red" });
-    sendLog(`FETCH ERROR FULL: ${e}`, { color: "red" });
-    sendLog(`STACK: ${e.stack}`, { color: "red" });
     return false;
   }
 }
@@ -1470,7 +1468,6 @@ async function saveProfileToDB(profile, scoringResult, contact, userId) {
     user_id: userId,
     username: `@${profile.username}`,
     profile_type: scoringResult.type,
-
     links: Array.isArray(profile.bioLinks)
       ? profile.bioLinks
       : [],
@@ -1485,11 +1482,13 @@ async function saveProfileToDB(profile, scoringResult, contact, userId) {
         : null;
   }
 
-  await fetch(`${API_URL}/profiles`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  try {
+    await axios.post(`${API_URL}/profiles`, payload, {
+      timeout: 10000,
+    });
+  } catch (e) {
+    sendLog(`Save profile error: ${e.message}`, { color: "red" });
+  }
 }
 
 function randomFromArray(arr) {
@@ -1535,19 +1534,24 @@ async function hasExistingDialog() {
 
 async function removeUsernameFromQueue(username, userId) {
   try {
-    await fetch(
-      `${API_URL}/usernames?user_id=${userId}&username=${username}`,
-      { method: "DELETE" }
-    );
+    await axios.delete(`${API_URL}/usernames`, {
+      params: {
+        user_id: userId,
+        username: username,
+      },
+      timeout: 10000,
+    });
 
     sendLog(
       `🗑 @${username} удалён из очереди`,
       { color: "gray" }
     );
+
     mainWindow.webContents.send("usernames-updated");
+
   } catch (e) {
     sendLog(
-      `⚠ Не удалось удалить @${username} из очереди`,
+      `⚠️ Не удалось удалить @${username} из очереди: ${e.message}`,
       { color: "yellow" }
     );
   }
@@ -2436,10 +2440,12 @@ function softStopMailing() {
 
 async function fetchUserPlan(userId) {
   try {
-    const res = await fetch(`${API_URL}/me?user_id=${userId}`);
-    if (!res.ok) throw new Error("plan fetch failed");
+    const res = await axios.get(`${API_URL}/me`, {
+      params: { user_id: userId },
+      timeout: 10000,
+    });
 
-    const data = await res.json();
+    const data = res.data;
 
     CURRENT_PLAN = data.plan || "LITE";
 
