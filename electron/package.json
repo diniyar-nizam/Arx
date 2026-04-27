@@ -1,7 +1,7 @@
 {
   "name": "arx",
   "productName": "Arx",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Arx – Instagram outreach automation tool",
   "author": "morph Team",
   "main": "main.js",

@@ -773,7 +773,17 @@ async function processUsername(username, texts) {
   GLOBAL_PARAMS,
   ACCOUNT_PARAMS
 );
+if (scannedWithoutMessages >= 100) {
+  sendLog(`⛔ 100 подряд без сообщений — стоп рассылки`, { color: "red" });
+  softStopMailing();
+  return;
+}
 
+if (mailingState.scanned >= 2000) {
+  sendLog(`⛔ Достигнут лимит 2000 сканов — стоп рассылки`, { color: "red" });
+  softStopMailing();
+  return;
+}
 const paramsSnapshot = structuredClone(pParams);
   try {
   if (!mailingActive) return;
@@ -1174,8 +1184,19 @@ sendMailingState();
       mailingState.scanned++;
       scannedWithoutMessages++;
       sendMailingState();
+      await removeUsernameFromQueue(username, CURRENT_USER_ID);
+        if (scannedWithoutMessages >= 100) {
+          sendLog(`⛔ 100 подряд без сообщений — стоп (finally)`, { color: "red" });
+          softStopMailing();
+          return;
+        }
+
+        if (mailingState.scanned >= 2000) {
+          sendLog(`⛔ 2000 сканов — стоп (finally)`, { color: "red" });
+          softStopMailing();
+          return;
+        }
       await checkLongPause(paramsSnapshot);
-        await removeUsernameFromQueue(username, CURRENT_USER_ID);
   }}
 }
 
