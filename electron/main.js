@@ -263,6 +263,7 @@ ipcMain.handle("start-mailing", async (_, payload) => {
   ACCOUNT_PARAMS = structuredClone(accountParams);
   await fetchUserPlan(userId);
   mailingState.scanned = 0;
+  scannedWithoutMessages = 0;
 mailingState.processed = 0;
 mailingState.totalProcessed = 0;
 mailingState.artists = 0;
@@ -802,10 +803,21 @@ const paramsSnapshot = structuredClone(pParams);
     }
   sendLog(`Открытие профиля @${username}`, { color: "gray" });
 
-  await page.goto(
-    `https://www.instagram.com/${username}/`,
-    { waitUntil: "domcontentloaded" }
-  );
+  const loaded = await safeGoto(
+  `https://www.instagram.com/${username}/`
+);
+
+if (!loaded) {
+  sendLog(`❌ Не удалось загрузить профиль @${username}`, { color: "red" });
+
+  shouldRemoveFromQueue = true;
+
+  // 💥 ВАЖНО — перезапуск контекста
+  await cleanup();
+  await openProfileContext(CURRENT_PROFILE_DIR);
+
+  return;
+}
   if (!mailingActive) return;
 
   const profile = await parseInstagramProfile(username);
@@ -1174,6 +1186,20 @@ sendMailingState();
       `❌ Ошибка при обработке @${username}: ${err.message}`,
       { color: "red" }
     );
+
+    if (
+    err.message.includes("ERR_INTERNET_DISCONNECTED") ||
+    err.message.includes("ENOTFOUND") ||
+    err.message.includes("fetch failed")
+  ) {
+    sendLog(`🌐 Проблема с сетью — перезапуск профиля`, { color: "yellow" });
+
+    await cleanup();
+    await openProfileContext(CURRENT_PROFILE_DIR);
+
+    return;
+  }
+
     await removeUsernameFromQueue(username, CURRENT_USER_ID);
     mailingState.scanned++;
     scannedWithoutMessages++;
@@ -1186,13 +1212,13 @@ sendMailingState();
       sendMailingState();
       await removeUsernameFromQueue(username, CURRENT_USER_ID);
         if (scannedWithoutMessages >= 100) {
-          sendLog(`⛔ 100 подряд без сообщений — стоп (finally)`, { color: "red" });
+          sendLog(`⛔ 100 подряд без сообщений — стоп`, { color: "red" });
           softStopMailing();
           return;
         }
 
         if (mailingState.scanned >= 2000) {
-          sendLog(`⛔ 2000 сканов — стоп (finally)`, { color: "red" });
+          sendLog(`⛔ 2000 сканов — стоп`, { color: "red" });
           softStopMailing();
           return;
         }
@@ -1300,7 +1326,8 @@ return true;
 
 async function openChatSmart(page, username) {
   // 1. Открываем профиль
-  await page.goto(`https://www.instagram.com/${username}/`);
+  const loaded = await safeGoto(`https://www.instagram.com/${username}/`);
+if (!loaded) return false;
   await page.waitForTimeout(4000);
 
   // ===== ИЩЕМ КНОПКУ MESSAGE =====
@@ -1553,28 +1580,67 @@ async function hasExistingDialog() {
   }
 }
 
+async function safeGoto(url, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      await page.goto(url, {
+        waitUntil: "domcontentloaded",
+        timeout: 15000,
+      });
+      return true;
+    } catch (e) {
+      const isLast = i === retries;
+
+      sendLog(
+        `⚠️ Ошибка загрузки (${i + 1}): ${e.message}`,
+        { color: "yellow" }
+      );
+
+      if (isLast) return false;
+
+      await page.waitForTimeout(2000);
+    }
+  }
+}
+
 async function removeUsernameFromQueue(username, userId) {
-  try {
-    await axios.delete(`${API_URL}/usernames`, {
-      params: {
-        user_id: userId,
-        username: username,
-      },
-      timeout: 10000,
-    });
+  const maxRetries = 3;
 
-    sendLog(
-      `🗑 @${username} удалён из очереди`,
-      { color: "gray" }
-    );
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await axios.delete(`${API_URL}/usernames`, {
+        params: {
+          user_id: userId,
+          username: username,
+        },
+        timeout: 10000,
+      });
 
-    mainWindow.webContents.send("usernames-updated");
+      sendLog(`🗑 @${username} удалён из очереди`, { color: "gray" });
+      mainWindow.webContents.send("usernames-updated");
 
-  } catch (e) {
-    sendLog(
-      `⚠️ Не удалось удалить @${username} из очереди: ${e.message}`,
-      { color: "yellow" }
-    );
+      return; // ✅ успех — выходим
+
+    } catch (e) {
+      const isLast = i === maxRetries - 1;
+
+      sendLog(
+        `⚠ Ошибка удаления @${username} (попытка ${i + 1}): ${e.message}`,
+        { color: "yellow" }
+      );
+
+      // если последняя попытка — уже финально логируем
+      if (isLast) {
+        sendLog(
+          `❌ Не удалось удалить @${username} после ${maxRetries} попыток`,
+          { color: "red" }
+        );
+        return;
+      }
+
+      // небольшая пауза перед retry
+      await new Promise(res => setTimeout(res, 1000));
+    }
   }
 }
 
